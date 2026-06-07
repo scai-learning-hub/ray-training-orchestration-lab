@@ -6,7 +6,7 @@ import socket
 
 import ray
 from ray import tune
-from ray.train import RunConfig
+from ray.tune import RunConfig
 
 from src.data.dataset_utils import load_or_generate_bundle
 from src.models.pytorch_mlp import train_single_process_mlp
@@ -164,7 +164,7 @@ def main() -> None:
             num_samples=args.num_samples,
             max_concurrent_trials=args.max_concurrent_trials,
         ),
-        run_config=RunConfig(name="ray_tune_pytorch_cpu"),
+        run_config=RunConfig(name="ray_tune_pytorch_cpu", verbose=1),
     )
 
     results = tuner.fit()

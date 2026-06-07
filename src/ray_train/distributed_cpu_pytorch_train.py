@@ -51,6 +51,15 @@ def parse_args() -> argparse.Namespace:
         help="MLflow tracking URI. Prefer the head node private IP when workers log remotely.",
     )
     parser.add_argument("--disable-mlflow", action="store_true", help="Disable MLflow tracking for this run.")
+    parser.add_argument(
+        "--storage-path",
+        type=str,
+        default=None,
+        help=(
+            "Shared storage URI or filesystem path for Ray Train checkpoints "
+            "(for example s3://bucket/path or /mnt/nfs). If omitted, multi-node runs skip checkpoint uploads."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -119,7 +128,7 @@ def train_loop_per_worker(config: dict[str, object]) -> None:
             f"epoch={epoch} loss={valid_metrics['loss']:.4f} accuracy={valid_metrics['accuracy']:.4f}"
         )
 
-        if epoch == int(config["epochs"]) and rank == 0:
+        if epoch == int(config["epochs"]) and rank == 0 and bool(config.get("emit_checkpoint", False)):
             with tempfile.TemporaryDirectory() as temp_dir:
                 checkpoint_dir = Path(temp_dir)
                 state_dict = model.module.state_dict() if hasattr(model, "module") else model.state_dict()
@@ -169,6 +178,17 @@ def main() -> None:
     if not args.disable_training_worker_resource:
         resources_per_worker["training_worker"] = 1
 
+    emit_checkpoint = bool(args.storage_path) or args.ray_address.lower() == "local"
+    if not emit_checkpoint:
+        print(
+            "No shared Ray Train storage path configured. "
+            "This cluster run will skip Ray Train checkpoint uploads and log metrics only."
+        )
+
+    run_config_kwargs: dict[str, object] = {"name": "ray_cpu_distributed_train"}
+    if args.storage_path:
+        run_config_kwargs["storage_path"] = args.storage_path
+
     trainer = TorchTrainer(
         train_loop_per_worker=train_loop_per_worker,
         train_loop_config={
@@ -182,6 +202,7 @@ def main() -> None:
             "learning_rate": args.learning_rate,
             "dropout": args.dropout,
             "seed": args.seed,
+            "emit_checkpoint": emit_checkpoint,
         },
         scaling_config=ScalingConfig(
             num_workers=args.num_workers,
@@ -189,7 +210,7 @@ def main() -> None:
             placement_strategy="SPREAD",
             resources_per_worker=resources_per_worker,
         ),
-        run_config=RunConfig(name="ray_cpu_distributed_train"),
+        run_config=RunConfig(**run_config_kwargs),
     )
 
     started = time.perf_counter()
@@ -222,7 +243,9 @@ def main() -> None:
                     "epochs": args.epochs,
                     "learning_rate": args.learning_rate,
                     "dropout": args.dropout,
+                    "checkpoint_enabled": emit_checkpoint,
                     "requires_training_worker": not args.disable_training_worker_resource,
+                    "storage_path": args.storage_path or "not_configured",
                 }
             )
             log_metrics(
