@@ -66,7 +66,7 @@ If you are using Git:
 ```bash
 sudo apt-get update
 sudo apt-get install -y git python3-venv python3-pip build-essential
-git clone <YOUR_REPOSITORY_URL> ray-cpu-training-orchestration-lab
+git clone https://github.com/scai-learning-hub/ray-training-orchestration-lab.git ray-cpu-training-orchestration-lab
 cd ray-cpu-training-orchestration-lab
 chmod +x scripts/*.sh
 ./scripts/setup_environment.sh
