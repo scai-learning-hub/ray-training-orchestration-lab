@@ -111,11 +111,13 @@ def tune_trainable(
             log_artifact_if_exists(result["artifact_path"], destination="models/tune_trials")
 
     tune.report(
-        val_accuracy=float(result["accuracy"]),
-        val_loss=float(result["loss"]),
-        training_time=float(result["training_time"]),
-        hostname=hostname,
-        trial_id=trial_id,
+        {
+            "val_accuracy": float(result["accuracy"]),
+            "val_loss": float(result["loss"]),
+            "training_time": float(result["training_time"]),
+            "hostname": hostname,
+            "trial_id": trial_id,
+        }
     )
 
 
