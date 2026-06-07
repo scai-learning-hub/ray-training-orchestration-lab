@@ -1,0 +1,8 @@
+ray[data,train,tune,serve]
+torch
+torchvision
+scikit-learn
+pandas
+numpy
+mlflow
+joblib
