@@ -22,6 +22,7 @@ ray start \
   --port="${RAY_PORT}" \
   --dashboard-host=0.0.0.0 \
   --dashboard-port="${DASHBOARD_PORT}" \
+  --disable-usage-stats \
   --resources='{"head_node": 1}'
 
 echo "Ray head started at ${HEAD_PRIVATE_IP}:${RAY_PORT}"
