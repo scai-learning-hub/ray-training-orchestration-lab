@@ -44,10 +44,13 @@ def start_training_run(
         active_run = mlflow.start_run(run_name=run_name, description=description)
         if tags:
             mlflow.set_tags({key: str(value) for key, value in tags.items()})
-        yield active_run
     except Exception as exc:  # pragma: no cover - external MLflow server issues are environment-specific
         print(f"[mlflow] warning: unable to log run '{run_name}': {exc}")
         yield None
+        return
+
+    try:
+        yield active_run
     finally:
         if active_run is not None and mlflow.active_run() is not None:
             mlflow.end_run()

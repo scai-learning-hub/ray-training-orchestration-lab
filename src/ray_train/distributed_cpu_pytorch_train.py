@@ -28,6 +28,29 @@ from src.tracking.mlflow_utils import (
 from src.utils.common import MODEL_OUTPUT_DIR, ensure_directory, resolve_tracking_uri, set_global_seeds
 
 
+@ray.remote(num_cpus=0)
+class FinalMetricsRecorder:
+    def __init__(self) -> None:
+        self._latest_metrics: dict[str, object] | None = None
+
+    def update(self, metrics: dict[str, object]) -> None:
+        self._latest_metrics = dict(metrics)
+
+    def get_latest(self) -> dict[str, object] | None:
+        return None if self._latest_metrics is None else dict(self._latest_metrics)
+
+
+def _resolve_final_metrics(result, recorder: ray.actor.ActorHandle) -> dict[str, object]:
+    if result.metrics:
+        return dict(result.metrics)
+
+    recorder_metrics = ray.get(recorder.get_latest.remote())
+    if recorder_metrics:
+        return recorder_metrics
+
+    return {}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run distributed CPU-only PyTorch training with Ray Train.")
     parser.add_argument("--ray-address", type=str, default="auto", help="Ray cluster address. Use 'local' for a local runtime.")
@@ -75,6 +98,7 @@ def train_loop_per_worker(config: dict[str, object]) -> None:
     world_size = train.get_context().get_world_size()
     hostname = socket.gethostname()
     device = get_device()
+    metrics_recorder = config.get("metrics_recorder")
     set_global_seeds(int(config["seed"]) + rank)
 
     train_dataset = LoanDefaultDataset(config["X_train"], config["y_train"])
@@ -127,6 +151,9 @@ def train_loop_per_worker(config: dict[str, object]) -> None:
             f"rank={rank} world_size={world_size} hostname={hostname} device={device} "
             f"epoch={epoch} loss={valid_metrics['loss']:.4f} accuracy={valid_metrics['accuracy']:.4f}"
         )
+
+        if rank == 0 and metrics_recorder is not None:
+            ray.get(metrics_recorder.update.remote(epoch_metrics))
 
         if epoch == int(config["epochs"]) and rank == 0 and bool(config.get("emit_checkpoint", False)):
             with tempfile.TemporaryDirectory() as temp_dir:
@@ -189,6 +216,8 @@ def main() -> None:
     if args.storage_path:
         run_config_kwargs["storage_path"] = args.storage_path
 
+    final_metrics_recorder = FinalMetricsRecorder.remote()
+
     trainer = TorchTrainer(
         train_loop_per_worker=train_loop_per_worker,
         train_loop_config={
@@ -203,6 +232,7 @@ def main() -> None:
             "dropout": args.dropout,
             "seed": args.seed,
             "emit_checkpoint": emit_checkpoint,
+            "metrics_recorder": final_metrics_recorder,
         },
         scaling_config=ScalingConfig(
             num_workers=args.num_workers,
@@ -216,10 +246,13 @@ def main() -> None:
     started = time.perf_counter()
     result = trainer.fit()
     total_duration = time.perf_counter() - started
+    final_metrics = _resolve_final_metrics(result, final_metrics_recorder)
 
     print("Distributed training completed.")
     print("Result metrics:")
-    print(result.metrics)
+    if result.metrics is None and final_metrics:
+        print("Recovered final metrics from in-run reports because Ray Train checkpointing is disabled.")
+    print(final_metrics)
 
     checkpoint_output = _copy_checkpoint_to_outputs(
         result.checkpoint,
@@ -250,14 +283,14 @@ def main() -> None:
             )
             log_metrics(
                 {
-                    "final_accuracy": float(result.metrics.get("accuracy", 0.0)),
-                    "final_loss": float(result.metrics.get("loss", 0.0)),
+                    "final_accuracy": float(final_metrics.get("accuracy", 0.0)),
+                    "final_loss": float(final_metrics.get("loss", 0.0)),
                     "training_time_seconds": total_duration,
-                    "rank": float(result.metrics.get("rank", 0.0)),
-                    "world_size": float(result.metrics.get("world_size", args.num_workers)),
+                    "rank": float(final_metrics.get("rank", 0.0)),
+                    "world_size": float(final_metrics.get("world_size", args.num_workers)),
                 }
             )
-            log_text_artifact(json.dumps(result.metrics, indent=2), "distributed_train/metrics.json")
+            log_text_artifact(json.dumps(final_metrics, indent=2), "distributed_train/metrics.json")
             if checkpoint_output is not None:
                 log_directory_artifacts(checkpoint_output, artifact_path="models/distributed_pytorch")
 
