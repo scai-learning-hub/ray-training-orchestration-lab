@@ -1,6 +1,5 @@
 ray[data,train,tune,serve]
-torch
-torchvision
+# Install CPU-only torch via scripts/setup_environment.sh on EC2 to avoid downloading CUDA wheels.
 scikit-learn
 pandas
 numpy

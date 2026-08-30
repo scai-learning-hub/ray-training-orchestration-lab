@@ -47,7 +47,9 @@ Workloads:
 
 ## Quick Start
 
-Deployment guide: [docs/00_aws_deployment_run_guide.md](docs/00_aws_deployment_run_guide.md)
+Concepts and theory: [docs/01_training_scale_orchestration.md](docs/01_training_scale_orchestration.md)
+
+Runtime guide: [docs/02_runtime_guide.md](docs/02_runtime_guide.md)
 
 Detailed AWS setup: [configs/aws_ec2_setup.md](configs/aws_ec2_setup.md)
 
@@ -208,15 +210,5 @@ Hyperparameter orchestration with Ray Tune:
 
 ## Documentation Map
 
-- Deployment guide: [docs/00_aws_deployment_run_guide.md](docs/00_aws_deployment_run_guide.md)
-- Architecture: [docs/01_architecture.md](docs/01_architecture.md)
-- Ray concepts: [docs/02_ray_concepts.md](docs/02_ray_concepts.md)
-- Teaching flow: [docs/03_classroom_teaching_flow.md](docs/03_classroom_teaching_flow.md)
-- Dashboard guide: [docs/04_dashboard_observation_guide.md](docs/04_dashboard_observation_guide.md)
-- Troubleshooting: [docs/05_troubleshooting.md](docs/05_troubleshooting.md)
-- Cleanup: [docs/06_cleanup.md](docs/06_cleanup.md)
-
-## Troubleshooting and Cleanup
-
-- Troubleshooting guide: [docs/05_troubleshooting.md](docs/05_troubleshooting.md)
-- Cleanup guide: [docs/06_cleanup.md](docs/06_cleanup.md)
+- Concepts and theory: [docs/01_training_scale_orchestration.md](docs/01_training_scale_orchestration.md)
+- Runtime guide: [docs/02_runtime_guide.md](docs/02_runtime_guide.md)

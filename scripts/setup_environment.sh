@@ -13,8 +13,9 @@ sudo apt-get install -y python3-venv python3-pip build-essential
 python3 -m venv .venv
 source .venv/bin/activate
 
-python -m pip install --upgrade pip wheel
-pip install -r requirements.txt
+python -m pip install --no-cache-dir --upgrade pip wheel
+python -m pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch
+python -m pip install --no-cache-dir -r requirements.txt
 
 mkdir -p outputs/datasets outputs/models outputs/ray_results mlartifacts
 
